@@ -127,27 +127,41 @@ class GameNode:
                 self.paddle.x += self.paddle_speed
             elif data.data == "SPACE":
                 self.ball_moving = True
+
     def create_bricks(self, level):
-            """Create bricks for the current level"""
-            bricks = []
-            rows = min(level, 8)  # Cap at 8 rows
-            brick_height = 20
-            brick_width = self.width // 10  # 10 bricks per row
-            
-            for row in range(rows):
-                for col in range(10):
-                    if level <= 3:
-                        brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.8, 0.15, 0.05])[0]
-                    elif level <= 6:
-                        brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.6, 0.3, 0.1])[0]
-                    else:
-                        brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.4, 0.4, 0.2])[0]
-                    
-                    brick_info = self.BRICK_TYPES[brick_type].copy()
-                    rect = pygame.Rect(col * brick_width, row * brick_height + 50, brick_width - 2, brick_height - 2)
-                    bricks.append({'rect': rect, 'hits': brick_info['hits'], 'color': brick_info['color']})
-            
-            return bricks
+        """Create bricks for the current level"""
+        bricks = []
+        rows = min(level, 8)  # Cap at 8 rows
+        brick_height = 20
+        brick_width = self.width // 10  # 10 bricks per row
+        
+        for row in range(rows):
+            for col in range(10):
+                if level <= 3:
+                    brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.8, 0.15, 0.05])[0]
+                elif level <= 6:
+                    brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.6, 0.3, 0.1])[0]
+                else:
+                    brick_type = random.choices(['normal', 'tough', 'super'], weights=[0.4, 0.4, 0.2])[0]
+                
+                brick_info = self.BRICK_TYPES[brick_type].copy()
+                rect = pygame.Rect(col * brick_width, row * brick_height + 50, brick_width - 2, brick_height - 2)
+                bricks.append({'rect': rect, 'hits': brick_info['hits'], 'color': brick_info['color']})
+        
+        return bricks
+    def next_level(self):
+            """Handle progression to next level"""
+            self.level += 1
+            self.bricks = self.create_bricks(self.level)
+            self.ball.x = self.paddle.x + self.paddle.width // 2 - self.ball_radius
+            self.ball.y = self.paddle.y - self.ball_radius * 2
+            self.ball_moving = False
+            self.ball_speed_x = 5 + self.level
+            self.ball_speed_y = -(5 + self.level)
+            self.paddle.width = self.INITIAL_PADDLE_WIDTH
+            self.paddle.x = max(0, min(self.width - self.paddle.width, self.paddle.x))
+            self.hits_since_shrink = 0
+            rospy.loginfo(f"Level {self.level} started!")
 
     def update_game(self):
         """Update game state"""
@@ -196,7 +210,7 @@ class GameNode:
 
     def handle_ball_lost(self):
         """Handle when ball goes below paddle"""
-        if self.ball_moving:  # Only decrement if the ball was moving
+        if self.ball_moving:
             if self.combos > 0:
                 self.combos -= 1
             self.lives -= 1
@@ -253,17 +267,49 @@ class GameNode:
                 
                 # Level progression
                 if len(self.bricks) == 0:
-                    self.level += 1
-                    self.bricks = self.create_bricks(self.level)
-                    self.ball.x = self.paddle.x + self.paddle.width // 2 - self.ball_radius
-                    self.ball.y = self.paddle.y - self.ball_radius * 2
-                    self.ball_moving = False
-                    self.ball_speed_x = 5 + self.level
-                    self.ball_speed_y = -(5 + self.level)
-                    self.paddle.width = self.INITIAL_PADDLE_WIDTH
-                    self.paddle.x = max(0, min(self.width - self.paddle.width, self.paddle.x))
-                    self.hits_since_shrink = 0
+                    self.next_level()
                 break
+
+    def show_game_over(self):
+        """Show game over screen and handle restart"""
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        restart_button = pygame.Rect(self.width // 2 - 100, self.height // 2 + 50, 200, 40)
+        
+        waiting_for_input = True
+        while waiting_for_input and not rospy.is_shutdown():
+            self.screen.fill(self.BACKGROUND_COLOR)
+            self.screen.blit(overlay, (0, 0))
+            
+            # Draw game over text
+            game_over_text = self.font_title.render("Game Over", True, (255, 0, 0))
+            score_text = self.font_button.render(f"Final Score: {self.score}", True, (255, 255, 255))
+            best_score_text = self.font_button.render(f"Best Score: {self.best_score}", True, (255, 255, 255))
+
+            self.screen.blit(game_over_text, (self.width // 2 - game_over_text.get_width() // 2, self.height // 2 - 100))
+            self.screen.blit(score_text, (self.width // 2 - score_text.get_width() // 2, self.height // 2 - 20))
+            self.screen.blit(best_score_text, (self.width // 2 - best_score_text.get_width() // 2, self.height // 2 + 20))
+
+            # Draw restart button
+            pygame.draw.rect(self.screen, (0, 255, 0), restart_button)
+            text_restart = self.font_small.render("Restart Game", True, (0, 0, 0))
+            self.screen.blit(text_restart, (restart_button.x + 50, restart_button.y + 10))
+
+            pygame.display.flip()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if restart_button.collidepoint(event.pos):
+                        waiting_for_input = False
+                        return True
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        waiting_for_input = False
+                        return True
+
+        return False
 
     def draw_game(self):
         """Draw game state"""
@@ -299,11 +345,18 @@ class GameNode:
 
     def end_game(self):
         """Handle game over"""
-        self.current_phase = "FINAL"
         if self.score > self.best_score:
             self.best_score = self.score
+        
         self.result_pub.publish(self.score)
         rospy.loginfo(f"Game Over! Final score: {self.score}")
+        
+        # Show game over screen and handle restart
+        if self.show_game_over():
+            self.current_phase = "GAME"
+            self.initialize_game_components()
+        else:
+            self.current_phase = "FINAL"
 
     def reset_ball(self):
         """Reset ball position"""
@@ -327,7 +380,6 @@ class GameNode:
                 self.update_game()
                 self.draw_game()
             elif self.current_phase == "FINAL":
-                rospy.sleep(2.0)
                 return
             
             rate.sleep()
@@ -339,5 +391,4 @@ if __name__ == '__main__':
     except rospy.ROSInterruptException:
         pass
     finally:
-        #hola
         pygame.quit()
