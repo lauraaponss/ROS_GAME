@@ -48,7 +48,7 @@ rosrun RP_Pons_Laura_Cotobal_Claudia result_node.py
 
 3. Start the info_user node (Terminal 2):
 ```bash
-rosrun RP_Pons_Laura_Cotobal_Claudia info_user_node.py
+rosrun RP_Pons_Laura_Cotobal_Claudia info_user.py
 ```
 
 4. Start either control node (Terminal 3):
