@@ -1,0 +1,20 @@
+<launch>
+    <!-- Launch game node with parameters -->
+    <node name="game_node" pkg="RP_Pons_Laura_Cotobal_Claudia" type="game_node.py" output="screen">
+        <param name="user_name" value="default_user" />
+        <param name="change_player_color" value="1" />
+        <param name="screen_param" value="phase1" />
+    </node>
+
+    <!-- Launch info_user node with output to screen -->
+    <node name="info_user" pkg="RP_Pons_Laura_Cotobal_Claudia" type="info_user.py" launch-prefix="xterm -e">
+        <remap from="/dev/stdout" to="/proc/1/fd/1"/>
+    </node>
+
+    <!-- Launch control nodes -->
+    <node name="control_node" pkg="RP_Pons_Laura_Cotobal_Claudia" type="control_node.py" output="screen" />
+    <node name="control_node_pygame" pkg="RP_Pons_Laura_Cotobal_Claudia" type="control_node_pygame.py" output="screen" />
+
+    <!-- Launch result node -->
+    <node name="result_node" pkg="RP_Pons_Laura_Cotobal_Claudia" type="result_node.py" output="screen" />
+</launch>
