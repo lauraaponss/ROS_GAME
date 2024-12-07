@@ -4,7 +4,8 @@ import rospy
 import pygame
 import random
 import math
-from std_msgs.msg import String, Int64
+from std_msgs.msg import Int64, String
+from RP_Pons_Laura_Cotobal_Claudia.msg import user_msg
 from RP_Pons_Laura_Cotobal_Claudia.srv import GetUserScore, GetUserScoreResponse, SetGameDifficulty, SetGameDifficultyResponse
 
 class ReleasedObject:
@@ -22,6 +23,7 @@ class GameNode:
     def __init__(self):
         # Initialize ROS node
         rospy.init_node('game_node')
+        self.paused = False
         
         # Initialize parameters
         self.user_name = rospy.get_param('~user_name', 'default_user')
@@ -29,7 +31,7 @@ class GameNode:
         self.screen_param = rospy.get_param('~screen_param', 'phase1')
         
         # ROS Publishers and Subscribers
-        self.user_sub = rospy.Subscriber('user_information', String, self.user_callback)
+        self.user_sub = rospy.Subscriber('user_information', user_msg, self.user_callback)
         self.keyboard_sub = rospy.Subscriber('keyboard_control', String, self.keyboard_callback)
         self.result_pub = rospy.Publisher('result_information', Int64, queue_size=10)
         
@@ -198,17 +200,49 @@ class GameNode:
     def user_callback(self, data):
         """Callback for receiving user information"""
         if self.current_phase == "WELCOME":
-            name, self.username, _ = data.data.split(',')
-            rospy.loginfo(f"Welcome {name}! Starting game...")
-            # Update parameters
-            rospy.set_param('~user_name', name)
+            # Now data.name, data.username, and data.age are directly accessible
+            rospy.loginfo(f"Welcome {data.name}! Starting game...")
+            self.username = data.username
+            rospy.set_param('~user_name', data.name)
             rospy.set_param('~screen_param', 'phase2')
             self.current_phase = "GAME"
             self.initialize_game_components()
 
+    def restart_game(self):
+        """Handle game restart"""
+        if self.current_phase == "FINAL":
+            self.current_phase = "GAME"
+            self.initialize_game_components()
+            self.paused = False
+            rospy.set_param('~screen_param', 'phase2')  # Update screen parameter
+        else:
+            self.current_phase = "GAME"
+            self.initialize_game_components()
+            self.paused = False
+        rospy.loginfo("Game restarted")
+    
+    def toggle_pause(self):
+        """Toggle game pause state"""
+        self.paused = not self.paused
+        if self.paused:
+            rospy.loginfo("Game paused")
+        else:
+            rospy.loginfo("Game resumed")
+    
     def keyboard_callback(self, data):
         """Callback for receiving keyboard controls"""
-        if self.current_phase == "GAME":
+        if data.data == "RESTART":
+            if self.current_phase == "FINAL":
+                self.current_phase = "GAME"
+                self.initialize_game_components()
+                self.paused = False
+                rospy.set_param('~screen_param', 'phase2')
+            return
+        elif data.data == "PAUSE":
+            self.toggle_pause()
+            return
+            
+        if not self.paused and self.current_phase == "GAME":
             if data.data == "LEFT" and self.paddle.left > 0:
                 self.paddle.x -= self.paddle_speed
             elif data.data == "RIGHT" and self.paddle.right < self.width:
@@ -232,6 +266,8 @@ class GameNode:
 
     def update_game(self):
             """Update game state"""
+            if self.paused:
+                return
             if not self.ball_moving:
                 self.ball.x = self.paddle.x + self.paddle.width // 2 - self.ball_radius
                 self.ball.y = self.paddle.y - self.ball_radius * 2
@@ -338,45 +374,46 @@ class GameNode:
                 break
             
     def show_game_over(self):
-            """Show game over screen and handle restart"""
-            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 200))
-            restart_button = pygame.Rect(self.width // 2 - 100, self.height // 2 + 50, 200, 40)
-            
-            waiting_for_input = True
-            while waiting_for_input and not rospy.is_shutdown():
-                self.screen.fill(self.BACKGROUND_COLOR)
-                self.screen.blit(overlay, (0, 0))
-                
-                # Draw game over text
-                game_over_text = self.font_title.render("Game Over", True, (255, 0, 0))
-                score_text = self.font_button.render(f"Final Score: {self.score}", True, (255, 255, 255))
-                best_score_text = self.font_button.render(f"Best Score: {self.best_score}", True, (255, 255, 255))
+        """Show game over screen and handle restart"""
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        restart_button = pygame.Rect(self.width // 2 - 100, self.height // 2 + 100, 200, 40)
+        
+        # Draw game over screen
+        self.screen.fill(self.BACKGROUND_COLOR)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw game over text
+        game_over_text = self.font_title.render("Game Over", True, (255, 0, 0))
+        score_text = self.font_button.render(f"Final Score: {self.score}", True, (255, 255, 255))
+        best_score_text = self.font_button.render(f"Best Score: {self.best_score}", True, (255, 255, 255))
+        restart_info_text = self.font_small.render("Press R or click button to restart", True, (255, 255, 255))
 
-                self.screen.blit(game_over_text, (self.width // 2 - game_over_text.get_width() // 2, self.height // 2 - 100))
-                self.screen.blit(score_text, (self.width // 2 - score_text.get_width() // 2, self.height // 2 - 20))
-                self.screen.blit(best_score_text, (self.width // 2 - best_score_text.get_width() // 2, self.height // 2 + 20))
+        # Adjusted positions
+        self.screen.blit(game_over_text, (self.width // 2 - game_over_text.get_width() // 2, self.height // 2 - 150))
+        self.screen.blit(score_text, (self.width // 2 - score_text.get_width() // 2, self.height // 2 - 80))
+        self.screen.blit(best_score_text, (self.width // 2 - best_score_text.get_width() // 2, self.height // 2 - 40))
+        self.screen.blit(restart_info_text, (self.width // 2 - restart_info_text.get_width() // 2, self.height // 2 + 60))
 
-                # Draw restart button
-                pygame.draw.rect(self.screen, (0, 255, 0), restart_button)
-                text_restart = self.font_small.render("Restart Game", True, (0, 0, 0))
-                self.screen.blit(text_restart, (restart_button.x + 50, restart_button.y + 10))
+        # Draw restart button
+        pygame.draw.rect(self.screen, (0, 255, 0), restart_button)
+        text_restart = self.font_small.render("Restart Game", True, (0, 0, 0))
+        self.screen.blit(text_restart, (restart_button.x + 50, restart_button.y + 10))
 
-                pygame.display.flip()
+        pygame.display.flip()
 
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return False
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if restart_button.collidepoint(event.pos):
-                            waiting_for_input = False
-                            return True
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_SPACE:
-                            waiting_for_input = False
-                            return True
+        # Check events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if restart_button.collidepoint(event.pos):
+                    return True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    return True
 
-            return False
+        return False
 
     def draw_game(self):
         """Draw game state"""
@@ -420,6 +457,12 @@ class GameNode:
             pygame.draw.circle(self.screen, self.COMBO_COLOR, 
                              (30 + i * 30, self.height - 20), 10)
         
+        # Draw pause indicator if paused
+        if self.paused:
+            pause_text = self.font_title.render("PAUSED", True, (255, 255, 255))
+            text_rect = pause_text.get_rect(center=(self.width/2, self.height/2))
+            self.screen.blit(pause_text, text_rect)
+
         pygame.display.flip()
 
     def end_game(self):
@@ -437,13 +480,9 @@ class GameNode:
         self.result_pub.publish(self.score)
         rospy.loginfo(f"Game Over! Final score: {self.score}")
         
-        # Show game over screen and handle restart
-        if self.show_game_over():
-            self.current_phase = "GAME"
-            rospy.set_param('~screen_param', 'phase2')
-            self.initialize_game_components()
-        else:
-            self.current_phase = "FINAL"
+        self.current_phase = "FINAL"
+        
+        # No need to call show_game_over here, it will be handled in the main loop
 
     def reset_ball(self):
         """Reset ball position"""
@@ -467,7 +506,11 @@ class GameNode:
                 self.update_game()
                 self.draw_game()
             elif self.current_phase == "FINAL":
-                return
+                if self.show_game_over():
+                    self.current_phase = "GAME"
+                    self.initialize_game_components()
+                    self.paused = False
+                    rospy.set_param('~screen_param', 'phase2')
             
             rate.sleep()
 

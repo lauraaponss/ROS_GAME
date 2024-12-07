@@ -3,22 +3,16 @@
 import rospy
 import os
 import sys
-from std_msgs.msg import String
+from RP_Pons_Laura_Cotobal_Claudia.msg import user_msg  # Import custom message
 import time
-
-class UserMsg:
-    def __init__(self):
-        self.name = ""
-        self.username = ""
-        self.age = 0
 
 class InfoUserNode:
     def __init__(self):
         # Initialize the node
         rospy.init_node('info_user_node')
         
-        # Create publisher for user information
-        self.user_info_pub = rospy.Publisher('user_information', String, queue_size=10)
+        # Create publisher for user information using custom message
+        self.user_info_pub = rospy.Publisher('user_information', user_msg, queue_size=10)
         
         # Give time for other nodes to start
         time.sleep(2)
@@ -80,9 +74,11 @@ class InfoUserNode:
             # Get user information
             name, username, age = self.get_user_info()
             
-            # Create message as a string
-            msg = String()
-            msg.data = f"{name},{username},{age}"  # Format: "name,username,age"
+            # Create custom message
+            msg = user_msg()
+            msg.name = name
+            msg.username = username
+            msg.age = age
             
             # Publish the message
             self.user_info_pub.publish(msg)

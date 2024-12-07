@@ -39,6 +39,12 @@ class ControlNodePygame:
                 if event.key == pygame.K_SPACE:
                     self.control_pub.publish("SPACE")
                     rospy.logdebug("Published: SPACE")
+                elif event.key == pygame.K_r:
+                    self.control_pub.publish("RESTART")
+                    rospy.loginfo("Published: RESTART")  # Cambiado a loginfo para ver si se publica
+                elif event.key == pygame.K_p:
+                    self.control_pub.publish("PAUSE")
+                    rospy.logdebug("Published: PAUSE")
         
         # Get the current state of all keyboard buttons
         keys = pygame.key.get_pressed()

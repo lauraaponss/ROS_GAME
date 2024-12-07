@@ -69,6 +69,14 @@ class ControlNode:
                     self.control_pub.publish("SPACE")
                     rospy.logdebug("Published: SPACE")
                 
+                elif key == 'r':  # restart
+                    self.control_pub.publish("RESTART")
+                    rospy.logdebug("Published: RESTART")
+                
+                elif key == 'p':  # pause/resume
+                    self.control_pub.publish("PAUSE")
+                    rospy.logdebug("Published: PAUSE")
+                
                 elif key == 'q':  # quit
                     rospy.loginfo("Quitting control node...")
                     break
