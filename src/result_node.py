@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import rospy
-from std_msgs.msg import String, Int64
+from std_msgs.msg import Int64
+from RP_Pons_Laura_Cotobal_Claudia.msg import user_msg
 from RP_Pons_Laura_Cotobal_Claudia.srv import GetUserScore
 
 class ResultNode:
@@ -18,7 +19,7 @@ class ResultNode:
         self.final_score = None
         
         # Subscribe to user information and game result
-        self.user_sub = rospy.Subscriber('user_information', String, self.user_callback)
+        self.user_sub = rospy.Subscriber('user_information', user_msg, self.user_callback)
         self.result_sub = rospy.Subscriber('result_information', Int64, self.result_callback)
         
         # Wait for the user_score service
@@ -30,10 +31,10 @@ class ResultNode:
     
     def user_callback(self, data):
         """Callback for receiving user information"""
-        # Parse the comma-separated string
         try:
-            self.name, self.username, age_str = data.data.split(',')
-            self.age = int(age_str)
+            self.name = data.name
+            self.username = data.username
+            self.age = data.age
             rospy.loginfo(f"Received user information for: {self.username}")
             
             # Try to get user's previous score
