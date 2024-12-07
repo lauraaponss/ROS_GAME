@@ -85,6 +85,10 @@ Basic Controls
 * Spacebar: Launch ball
 * 'q': Quit (in terminal control mode)
 
+Other controls
+* 'R': once game finished, press to restart game
+* 'P': to pause game and resume game
+
 Game Customization
 * Difficulty Settings (Available only during welcome phase)
   * Easy: Slower ball speed and gentler paddle shrinking
