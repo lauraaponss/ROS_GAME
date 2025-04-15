@@ -8,8 +8,8 @@ This is a ROS implementation of a Brick Breaker game using multiple nodes for di
 - ROS (tested on ROS Noetic)
 - Python 3
 - Pygame (`pip install pygame`)
-- * xterm (`sudo apt-get install xterm`) - Required for launch file
-  * 
+  * xterm (`sudo apt-get install xterm`) - Required for launch file
+ 
 ## Node Structure
 The game consists of five nodes:
 1. **info_user_node**: Collects player information
