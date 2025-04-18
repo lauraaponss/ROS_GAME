@@ -1,4 +1,3 @@
-# RP_Pons_Laura_Cotobal_Claudia
 # Brick Breaker ROS Game
 
 This is a ROS implementation of a Brick Breaker game using multiple nodes for different functionalities.
